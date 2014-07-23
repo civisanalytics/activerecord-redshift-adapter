@@ -4,6 +4,20 @@ describe ActiveRecord::ConnectionAdapters::RedshiftAdapter do
   before(:all) do
     @connection =  ActiveRecord::Base.redshift_connection(TEST_CONNECTION_HASH)
 
+    [
+      'DROP SCHEMA test CASCADE',
+      'CREATE SCHEMA test',
+      'DROP TABLE public.test',
+      'DROP TABLE public.test2',
+      'DROP TABLE test.test',
+      'DROP TABLE test.test2',
+    ].each do |query|
+      begin
+        @connection.query(query)
+      rescue
+      end
+    end
+
     @connection.query <<-sql
     CREATE TABLE public.test ( "id" INTEGER NULL, "name" VARCHAR(80) NULL );
     CREATE TABLE public.test2 ( "id" INTEGER, "name" VARCHAR );
@@ -92,6 +106,24 @@ describe ActiveRecord::ConnectionAdapters::RedshiftAdapter do
 
     it "returns identical string when no quoting is required" do
       @connection.quote_string("quote").should == "quote"
+    end
+  end
+
+  describe "#quote_column_name" do
+    it "can handle a bunch of different cases" do
+      tests = {
+        'quote'         => '"quote"',
+        'qu"ote'        => '"qu""ote"',
+        'qu"""ote'      => '"qu""""""ote"',
+        'foo "bar" baz' => '"foo ""bar"" baz"',
+        ' quote '       => '" quote "',
+        ''              => '""',
+        'q'*127         => "\"#{'q' * 127}\"", # this one will fail if we use PGConn.quote_ident
+      }
+
+      tests.each do |input, output|
+        @connection.quote_column_name(input).should == output
+      end
     end
   end
 end
