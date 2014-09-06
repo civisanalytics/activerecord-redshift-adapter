@@ -487,7 +487,10 @@ module ActiveRecord
 
       # Quotes column names for use in SQL queries.
       def quote_column_name(name) #:nodoc:
-        PGconn.quote_ident(name.to_s)
+        # PGconn doesn't support names as long as Redshift does; it complains with
+        # "Input string is longer than NAMEDATALEN-1 (63)"
+        # PGconn.quote_ident(name.to_s)
+        '"' + name.to_s.gsub('"', '""') + '"'
       end
 
       # Quote date/time values for use in SQL input. Includes microseconds
