@@ -10,7 +10,7 @@ require 'pg'
 module ActiveRecord
   class Base
     # Establishes a connection to the database that's used by all Active Record objects
-    def self.redshift_connection(config) # :nodoc:
+    def self.redshift3_connection(config) # :nodoc:
       config = config.symbolize_keys
       host     = config[:host]
       port     = config[:port] || 5432
@@ -25,13 +25,13 @@ module ActiveRecord
 
       # The postgres drivers don't allow the creation of an unconnected PGconn object,
       # so just pass a nil connection object for the time being.
-      ConnectionAdapters::RedshiftAdapter.new(nil, logger, [host, port, nil, nil, database, username, password], config)
+      ConnectionAdapters::Redshift3Adapter.new(nil, logger, [host, port, nil, nil, database, username, password], config)
     end
   end
 
   module ConnectionAdapters
     # Redshift-specific extensions to column definitions in a table.
-    class RedshiftColumn < Column #:nodoc:
+    class Redshift3Column < Column #:nodoc:
       # Instantiates a new Redshift column definition in a table.
       def initialize(name, default, sql_type = nil, null = true)
         super(name, self.class.extract_value_from_default(default), sql_type, null)
@@ -204,7 +204,7 @@ module ActiveRecord
     #   as a string of comma-separated schema names. This is backward-compatible with the <tt>:schema_order</tt> option.
     # * <tt>:encoding</tt> - An optional client encoding that is used in a <tt>SET client_encoding TO
     #   <encoding></tt> call on the connection.
-    class RedshiftAdapter < AbstractAdapter
+    class Redshift3Adapter < AbstractAdapter
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
         def xml(*args)
           options = args.extract_options!
@@ -217,7 +217,7 @@ module ActiveRecord
         end
       end
 
-      ADAPTER_NAME = 'Redshift'
+      ADAPTER_NAME = 'Redshift3'
 
       NATIVE_DATABASE_TYPES = {
         :primary_key => "serial primary key",
@@ -616,7 +616,7 @@ module ActiveRecord
 
           # If this is a money type column and there are any currency symbols,
           # then strip them off. Indeed it would be prettier to do this in
-          # RedshiftColumn.string_to_decimal but would break form input
+          # Redshift3Column.string_to_decimal but would break form input
           # fields that call value_before_type_cast.
           monies.each do |index, _|
             data = row[index]
@@ -818,7 +818,7 @@ module ActiveRecord
       def columns(table_name, name = nil)
         # Limit, precision, and scale are all handled by the superclass.
         column_definitions(table_name).collect do |column_name, type, default, notnull|
-          RedshiftColumn.new(column_name, default, type, notnull == 'f')
+          Redshift3Column.new(column_name, default, type, notnull == 'f')
         end
       end
 
@@ -1163,9 +1163,9 @@ module ActiveRecord
           @connection = PGconn.connect(*@connection_parameters)
 
           # Money type has a fixed precision of 10 in Redshift 8.2 and below, and as of
-          # Redshift 8.3 it has a fixed precision of 19. RedshiftColumn.extract_precision
+          # Redshift 8.3 it has a fixed precision of 19. Redshift3Column.extract_precision
           # should know about this but can't detect it there, so deal with it here.
-          RedshiftColumn.money_precision = (redshift_version >= 80300) ? 19 : 10
+          Redshift3Column.money_precision = (redshift_version >= 80300) ? 19 : 10
 
           configure_connection
         end
@@ -1186,7 +1186,7 @@ module ActiveRecord
         end
 
         # Executes a SELECT query and returns the results, performing any data type
-        # conversions that are required to be performed here instead of in RedshiftColumn.
+        # conversions that are required to be performed here instead of in Redshift3Column.
         def select(sql, name = nil, binds = [])
           exec_query(sql, name, binds).to_a
         end
